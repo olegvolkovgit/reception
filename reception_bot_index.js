@@ -24,8 +24,6 @@ async function startAction(msg) {
     isUserBot = JSON.stringify(msg?.update?.message?.from.is_bot);
     receiver = process.env.postBox;
 
-    messageCounter = 0;
-    messagesAreAllowed = true;
     await msg.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
     await msg.reply(dialog.intro);
 }

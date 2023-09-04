@@ -1,0 +1,14 @@
+{
+  "author": "Cyber_Army_of_Ukraine",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon reception_bot_index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.1",
+    "telegraf": "^4.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.16"
+  }
+}

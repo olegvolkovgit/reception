@@ -6,23 +6,22 @@ let user;
 let userId
 let isUserBot;
 let receiver;
+let firstMessage;
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.use(Telegraf.log());
 
 bot.start(startAction);
-bot.command('restart', startAction);
-
 bot.on("message", onMessage);
-
-bot.action("forward", forward);
+bot.command('restart', onRestart);
 
 async function startAction(msg) {
     user = await getUserName(msg);
     userId = JSON.stringify(msg?.update?.message?.from.id);
     isUserBot = JSON.stringify(msg?.update?.message?.from.is_bot);
     receiver = process.env.postBox;
+    firstMessage = true;
 
     await msg.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
     await msg.reply(dialog.intro);
@@ -51,6 +50,7 @@ async function onMessage(msg) {
 
             let photo = msg?.update?.message?.photo || msg?.message?.photo || msg?.Context?.update?.message?.photo;
             let video = msg?.update?.message?.video || msg?.message?.video || msg?.Context?.update?.message?.video;
+
             if (photo) {
                 if (msg.update.message.caption) {
                     await msg.telegram.sendMessage(receiver, msg.update.message.caption);
@@ -65,23 +65,19 @@ async function onMessage(msg) {
             }
         }
 
-        await forward(msg);
-    } catch (e) {
-        console.log(e)
-    }
-}
-
-async function forward(msg) {
-    // REPLY THE BUTTON
-    try {
         await msg.replyWithHTML(dialog.thanks[language], Markup.inlineKeyboard([
             [
-                Markup.button.callback("Зформувати і відправити")
+                Markup.button.callback("сформувати та надіслати"),
             ]
         ]));
     } catch (e) {
         console.log(e)
     }
+}
+
+async function onRestart(ctx) {
+    firstMessage = false;
+    await startAction();
 }
 
 async function getUserName(ctx) {

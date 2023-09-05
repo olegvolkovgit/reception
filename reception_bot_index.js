@@ -67,7 +67,7 @@ async function onMessage(msg) {
 
         await msg.replyWithHTML(dialog.thanks[language], Markup.inlineKeyboard([
             [
-                Markup.button.callback("сформувати та надіслати"),
+                Markup.button.callback(dialog.button_text),
             ]
         ]));
     } catch (e) {

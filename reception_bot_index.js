@@ -65,7 +65,7 @@ async function onMessage(msg) {
             }
         }
 
-        await msg.replyWithHTML(dialog.thanks[language], Markup.inlineKeyboard([
+        await msg.replyWithHTML(Markup.inlineKeyboard([
             [
                 Markup.button.callback(dialog.button_text),
             ]

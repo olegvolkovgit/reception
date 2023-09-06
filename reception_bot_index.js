@@ -1,4 +1,7 @@
+import AdmZip from 'adm-zip';
 import 'dotenv/config';
+import fs from 'fs';
+import fetch from 'node-fetch';
 import { Markup, Telegraf } from 'telegraf';
 import dialog from './answers.js';
 
@@ -8,6 +11,10 @@ let isUserBot;
 let receiver;
 let firstMessage;
 
+let text = "";
+let photos = [];
+let videos = [];
+
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.use(Telegraf.log());
@@ -15,24 +22,25 @@ bot.use(Telegraf.log());
 bot.start(startAction);
 bot.on("message", onMessage);
 bot.command('restart', onRestart);
+bot.action("formAndSend", formAndSend);
 
-async function startAction(msg) {
-    user = await getUserName(msg);
-    userId = JSON.stringify(msg?.update?.message?.from.id);
-    isUserBot = JSON.stringify(msg?.update?.message?.from.is_bot);
+async function startAction(ctx) {
+    user = await getUserName(ctx);
+    userId = JSON.stringify(ctx?.update?.message?.from.id);
+    isUserBot = JSON.stringify(ctx?.update?.message?.from.is_bot);
     receiver = process.env.postBox;
     firstMessage = true;
 
-    await msg.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
-    await msg.reply(dialog.intro);
+    await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
+    await ctx.reply(dialog.intro);
 }
 
-async function onMessage(msg) {
+async function onMessage(ctx) {
     try {
         receiver = process.env.postBox;
-        if (JSON.stringify(msg?.update?.message?.from.id) === process.env.respKey) {
-            let user = msg.message.text.match(/\[(.*?)\]/)[1];
-            let data = msg.message.text.replace(/\[(.*?)\]/, "");
+        if (JSON.stringify(ctx?.update?.message?.from.id) === process.env.respKey) {
+            let user = ctx.message.text.match(/\[(.*?)\]/)[1];
+            let data = ctx.message.text.replace(/\[(.*?)\]/, "");
 
             data && user &&
                 await bot.telegram.sendMessage(user, data);
@@ -40,36 +48,50 @@ async function onMessage(msg) {
             return
         }
 
-        if (msg?.message?.text || msg?.Context?.update?.message?.text) {
-            let userMessage = msg.message.text || msg.update.message.text;
-            await msg.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + userMessage);
+        if (ctx?.message?.text || ctx?.Context?.update?.message?.text) {
+            let userMessage = ctx.message.text || ctx.update.message.text;
+            text.concat(userMessage);
+
+            //await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + userMessage);
         }
 
-        if (msg?.update?.message?.photo || msg?.message?.photo || msg?.Context?.update?.message?.photo ||
-            msg?.update?.message?.video || msg?.message?.video || msg?.Context?.update?.message?.video) {
+        if (ctx?.update?.message?.photo || ctx?.message?.photo || ctx?.Context?.update?.message?.photo ||
+            ctx?.update?.message?.video || ctx?.message?.video || ctx?.Context?.update?.message?.video) {
 
-            let photo = msg?.update?.message?.photo || msg?.message?.photo || msg?.Context?.update?.message?.photo;
-            let video = msg?.update?.message?.video || msg?.message?.video || msg?.Context?.update?.message?.video;
+            let photo = ctx?.update?.message?.photo || ctx?.message?.photo || ctx?.Context?.update?.message?.photo;
+            let video = ctx?.update?.message?.video || ctx?.message?.video || ctx?.Context?.update?.message?.video;
 
             if (photo) {
-                if (msg.update.message.caption) {
-                    await msg.telegram.sendMessage(receiver, msg.update.message.caption);
+                if (ctx.update.message.caption) {
+                    text.concat("\n" + receiver, ctx.update.message.caption);
                 }
-                await msg.telegram.sendPhoto(receiver, photo[0].file_id);
+
+                photos.push(photo[0].file_id);
+                //await ctx.telegram.sendPhoto(receiver, photo[0].file_id);
             }
             if (video) {
-                if (msg.update.message.caption) {
-                    await msg.telegram.sendMessage(receiver, msg.update.message.caption);
+                if (ctx.update.message.caption) {
+                    text.concat("\n" + receiver, ctx.update.message.caption);
                 }
-                await msg.telegram.sendVideo(receiver, video.file_id);
+
+                videos.push(video.file_id);
+                //await ctx.telegram.sendVideo(receiver, video.file_id);
             }
         }
 
-        await msg.replyWithHTML(Markup.inlineKeyboard([
+        // const keyboard = Markup.keyboard([
+        //     Markup.button.contactRequest(dialog.form_and_send, false),
+        // ]).resize();
+
+
+        await ctx.replyWithHTML(dialog.if_end, Markup.inlineKeyboard([
             [
-                Markup.button.callback(dialog.button_text),
+                Markup.button.callback(dialog.form_and_send, "formAndSend")
             ]
-        ]));
+        ])).resize();
+
+
+        await ctx.replyWithHTML(dialog.if_end, keyboard);
     } catch (e) {
         console.log(e)
     }
@@ -97,6 +119,38 @@ async function getUserName(ctx) {
     }
 
     return user;
+}
+
+async function formAndSend(ctx) {
+    ctx.reply(dialog.inDevelopment);
+
+    const fileId = ctx.message.photo.at(-1).file_id;
+    const fileLink = await ctx.telegram.getFileLink(fileId);
+
+    // Create a zip file
+    const zip = new AdmZip();
+
+    for (let i = 0; i < photos.length; i++) {
+        // Download the photo using fetch
+        let response = await fetch(photos[i]);
+        let buffer = Buffer.from(await response.arrayBuffer());
+
+        // Save the downloaded photo to a temporary file
+        let tempFileName = `${fileId}.jpg`;
+        fs.writeFileSync(tempFileName, buffer);
+        zip.addLocalFile(tempFileName);
+
+        // Cleanup temporary files
+        fs.unlinkSync(tempFileName);
+    }
+
+    // Save the zip file
+    const zipFileName = `${fileId}.zip`;
+    zip.writeZip(zipFileName);
+
+    fs.unlinkSync(zipFileName);
+    // Send the zip file to the chat
+    ctx.replyWithDocument({ source: zipFileName });
 }
 
 bot.launch();

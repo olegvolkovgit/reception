@@ -164,7 +164,7 @@ import archiver from 'archiver';
 import fs from 'fs';
 import { Markup, Telegraf } from 'telegraf';
 
-const bot = new Telegraf('5478517913:AAHkqL1T2_b7shcefXFVWbEy2JIugWYtgFg');
+const bot = new Telegraf('6675530334:AAH85t_EJTKqmF-SRj09Gw5cUhMFtMTPnC8');
 
 let personalData = {};
 

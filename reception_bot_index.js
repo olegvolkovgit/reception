@@ -15,7 +15,7 @@ let text = "";
 let photos = [];
 let videos = [];
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf(process.env.BOT_CALL_NAME);
 
 bot.use(Telegraf.log());
 

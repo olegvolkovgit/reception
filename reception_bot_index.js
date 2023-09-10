@@ -46,7 +46,7 @@ async function onMessage(ctx) {
 
         if (ctx?.message?.text || ctx?.Context?.update?.message?.text) {
             let userMessage = ctx.message.text || ctx.update.message.text;
-            personalData.text.concat(userMessage);
+            personalData.text += userMessage;
 
             //await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + userMessage);
         }
@@ -114,6 +114,9 @@ async function getUserName(ctx) {
 
 bot.action('formAndSend', (ctx) => {
     // Check if all required data is available
+    console.log(personalData.text.length, "=> personalData.text.length");
+    console.log(personalData.photoId.length, "=> personalData.photoId.length");
+
     if (!personalData.text.length || !personalData.photoId.length) {
         ctx.reply('Не всі дані отримані. Будь ласка, надішліть всі необхідні дані.');
         return;

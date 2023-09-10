@@ -13,7 +13,7 @@ const personalData = {
     videoId: [""],
 };
 
-const bot = new Telegraf(process.env.BOT_CALL_NAME);
+const bot = new Telegraf('6675530334:AAF3GlOv8Euhb6kqtpSBc1XoeXPZRGKL0c8');
 
 bot.use(Telegraf.log());
 

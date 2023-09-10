@@ -1,5 +1,5 @@
 {
-  "author": "Cyber_Army_of_Ukraine",
+  "author": "reception_bot",
   "type": "module",
   "scripts": {
     "dev": "nodemon reception_bot_index.js"

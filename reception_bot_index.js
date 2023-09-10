@@ -1,6 +1,4 @@
-import AdmZip from 'adm-zip';
 import 'dotenv/config';
-import fs from 'fs';
 import { Markup, Telegraf } from 'telegraf';
 import dialog from './answers.js';
 
@@ -8,12 +6,12 @@ let user;
 let userId
 let isUserBot;
 let receiver;
-let firstMessage;
-const personalData = {};
 
-let text = "";
-let photos = [];
-let videos = [];
+const personalData = {
+    text: "",
+    photoId: [""],
+    videoId: [""],
+};
 
 const bot = new Telegraf(process.env.BOT_CALL_NAME);
 
@@ -28,10 +26,9 @@ async function startAction(ctx) {
     userId = JSON.stringify(ctx?.update?.message?.from.id);
     isUserBot = JSON.stringify(ctx?.update?.message?.from.is_bot);
     receiver = process.env.postBox;
-    firstMessage = true;
 
-    await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
     await ctx.reply(dialog.intro);
+    await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
 }
 
 async function onMessage(ctx) {
@@ -49,7 +46,7 @@ async function onMessage(ctx) {
 
         if (ctx?.message?.text || ctx?.Context?.update?.message?.text) {
             let userMessage = ctx.message.text || ctx.update.message.text;
-            text.concat(userMessage);
+            personalData.text.concat(userMessage);
 
             //await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + userMessage);
         }
@@ -65,7 +62,7 @@ async function onMessage(ctx) {
                     text.concat("\n" + receiver, ctx.update.message.caption);
                 }
 
-                photos.push(photo[0].file_id);
+                personalData.photoId.push(photo[0].file_id);
                 //await ctx.telegram.sendPhoto(receiver, photo[0].file_id);
             }
             if (video) {
@@ -73,7 +70,7 @@ async function onMessage(ctx) {
                     text.concat("\n" + receiver, ctx.update.message.caption);
                 }
 
-                videos.push(video.file_id);
+                personalData.videoId.push(video.file_id);
                 //await ctx.telegram.sendVideo(receiver, video.file_id);
             }
         }
@@ -117,28 +114,37 @@ async function getUserName(ctx) {
 
 bot.action('formAndSend', (ctx) => {
     // Check if all required data is available
-    // if (!text && !personalData.photoId && !personalData.videoId) {
-    //     ctx.reply('Не всі дані отримані. Будь ласка, надішліть всі необхідні дані.');
-    //     return;
-    // }
+    if (!personalData.text.length || !personalData.photoId.length) {
+        ctx.reply('Не всі дані отримані. Будь ласка, надішліть всі необхідні дані.');
+        return;
+    }
 
-    // Create a ZIP archive using adm-zip
-    const zip = new AdmZip();
+    // Create an array of media objects (photos, videos, etc.)
+    const mediaGroup = []
 
-    // Add text, photo, and video to the archive
-    zip.addFile('text.txt', Buffer.from(personalData.text, 'utf8'));
-    photos.forEach(photoId => { zip.addFile('photo.jpg', fs.readFileSync(photoId)) });
-    personalData.videoId && zip.addFile('video.mp4', fs.readFileSync(personalData.videoId));
+    for (let i = 0; i < personalData.photoId.length; i++) {
+        mediaGroup.push({
+            type: 'photo',
+            media: personalData.photoId[i],
+        });
+    }
 
-    // Save the ZIP archive to a file
-    const zipFilePath = __dirname + '/data.zip';
-    zip.writeZip(zipFilePath);
+    for (let i = 0; i < personalData.videoId.length; i++) {
+        mediaGroup.push({
+            type: 'video',
+            media: personalData.videoId[i],
+        })
+    }    // Add more media objects as needed
 
-    // Send the ZIP archive to the user
-    ctx.replyWithDocument({ source: zipFilePath });
+    // Send the media group as an album
+    ctx.telegram.sendMediaGroup(process.env.postBox, mediaGroup);
 
     // Clear personalData for the next interaction
-    personalData = {};
+    personalData = {
+        text: "",
+        photoId: [""],
+        videoId: [""],
+    };
 });
 
 bot.launch();
@@ -146,79 +152,3 @@ bot.launch();
 // // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'))
 process.once('SIGTERM', () => bot.stop('SIGTERM'))
-
-
-// import archiver from 'archiver';
-// import fs from 'fs';
-// import { Markup, Telegraf } from 'telegraf';
-
-// const bot = new Telegraf('6675530334:AAH85t_EJTKqmF-SRj09Gw5cUhMFtMTPnC8');
-
-// let personalData = {};
-
-// bot.start((ctx) => {
-//     ctx.reply('надішліть дані для перевірки');
-// });
-
-// bot.on('text', (ctx) => {
-//     const messageText = ctx.message.text;
-//     // Store text data in a global variable
-//     personalData.text = messageText;
-
-//     ctx.replyWithHTML('якщо ви закінчили надсилання - натисніть кнопку нижче', Markup.inlineKeyboard([
-//         [
-//             Markup.button.callback('зформувати і надіслати', 'send')
-//         ]
-//     ]));
-
-//     // ctx.reply(
-//     //     'якщо ви закінчили надсилання - натисніть кнопку нижче',
-//     //     Markup.button.callback('зформувати і надіслати', 'send')
-//     // );
-// });
-
-// bot.on('photo', (ctx) => {
-//     const photoId = ctx.message.photo[0].file_id;
-//     // Store photo data in a global variable
-//     personalData.photoId = photoId;
-// });
-
-// bot.on('video', (ctx) => {
-//     const videoId = ctx.message.video.file_id;
-//     // Store video data in a global variable
-//     personalData.videoId = videoId;
-// });
-
-// bot.action('send', (ctx) => {
-// Check if all required data is available
-// if (!personalData.text && !personalData.photoId && !personalData.videoId) {
-//     ctx.reply('Не всі дані отримані. Будь ласка, надішліть всі необхідні дані.');
-//     return;
-// }
-
-// // Create a ZIP archive
-// const archive = archiver('zip', {
-//     zlib: { level: 9 },
-// });
-
-// const output = fs.createWriteStream(__dirname + '/data.zip');
-
-// // Add text, photo, and video to the archive
-// archive.append(personalData.text, { name: 'text.txt' });
-// archive.append(personalData.photoId, { name: 'photo.jpg' });
-// archive.append(personalData.videoId, { name: 'video.mp4' });
-
-// // Finalize the archive and send it to the user
-// archive.pipe(output);
-// archive.finalize();
-
-// ctx.reply('Формування ZIP-архіву та відправлення...');
-// ctx.telegram.sendDocument(ctx.from.id, {
-//     source: __dirname + '/data.zip',
-// });
-
-// // Clear personalData for the next interaction
-// personalData = {};
-// });
-
-// bot.launch();

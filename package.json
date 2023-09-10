@@ -5,7 +5,6 @@
     "dev": "nodemon reception_bot_index.js"
   },
   "dependencies": {
-    "adm-zip": "^0.5.10",
     "dotenv": "^16.0.1",
     "git": "^0.1.5",
     "telegraf": "^4.13.1"

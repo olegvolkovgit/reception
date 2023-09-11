@@ -59,7 +59,7 @@ async function onMessage(ctx) {
 
             if (photo) {
                 if (ctx.update.message.caption) {
-                    text.concat("\n" + receiver, ctx.update.message.caption);
+                    text.concat("\n" + ctx.update.message.caption);
                 }
 
                 personalData.photoId.push(photo[0].file_id);
@@ -67,7 +67,7 @@ async function onMessage(ctx) {
             }
             if (video) {
                 if (ctx.update.message.caption) {
-                    text.concat("\n" + receiver, ctx.update.message.caption);
+                    text.concat("\n" + ctx.update.message.caption);
                 }
 
                 personalData.videoId.push(video.file_id);
@@ -125,19 +125,25 @@ bot.action('formAndSend', (ctx) => {
     // Create an array of media objects (photos, videos, etc.)
     const mediaGroup = []
 
-    for (let i = 0; i < personalData.photoId.length; i++) {
+    for (let element in personalData.photoId) {
         mediaGroup.push({
             type: 'photo',
-            media: personalData.photoId[i],
+            media: personalData[element],
         });
     }
 
-    for (let i = 0; i < personalData.videoId.length; i++) {
+    for (let element in personalData.videoId) {
         mediaGroup.push({
             type: 'video',
-            media: personalData.videoId[i],
+            media: personalData[element],
         })
-    }    // Add more media objects as needed
+    }
+
+    mediaGroup.push({
+        type: 'text',
+        media: personalData.text,
+    })
+    // Add more media objects as needed
 
     // Send the media group as an album
     ctx.telegram.sendMediaGroup(process.env.postBox, mediaGroup);

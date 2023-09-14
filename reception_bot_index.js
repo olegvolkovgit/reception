@@ -6,11 +6,12 @@ let user;
 let userId
 let isUserBot;
 let receiver;
+let mediaGroupId = "";
 
-const personalData = {
+let personalData = {
     text: "",
-    photoId: [""],
-    videoId: [""],
+    photoId: [],
+    videoId: [],
 };
 
 const bot = new Telegraf(process.env.BOT_CALL_NAME);
@@ -18,22 +19,12 @@ const bot = new Telegraf(process.env.BOT_CALL_NAME);
 bot.use(Telegraf.log());
 
 bot.start(startAction);
-bot.on("message", onMessage);
-bot.command('restart', onRestart);
+bot.command('restart', startAction);
 
-async function startAction(ctx) {
-    user = await getUserName(ctx);
-    userId = JSON.stringify(ctx?.update?.message?.from.id);
-    isUserBot = JSON.stringify(ctx?.update?.message?.from.is_bot);
-    receiver = process.env.postBox;
+bot.on("message", dataProcessorMiddleware, onMessage);
 
-    await ctx.reply(dialog.intro);
-    await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
-}
-
-async function onMessage(ctx) {
+async function dataProcessorMiddleware(ctx, next) {
     try {
-        receiver = process.env.postBox;
         if (JSON.stringify(ctx?.update?.message?.from.id) === process.env.respKey) {
             let user = ctx.message.text.match(/\[(.*?)\]/)[1];
             let data = ctx.message.text.replace(/\[(.*?)\]/, "");
@@ -46,9 +37,7 @@ async function onMessage(ctx) {
 
         if (ctx?.message?.text || ctx?.Context?.update?.message?.text) {
             let userMessage = ctx.message.text || ctx.update.message.text;
-            personalData.text += userMessage;
-
-            //await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + userMessage);
+            personalData.text += userMessage + " ";
         }
 
         if (ctx?.update?.message?.photo || ctx?.message?.photo || ctx?.Context?.update?.message?.photo ||
@@ -58,39 +47,66 @@ async function onMessage(ctx) {
             let video = ctx?.update?.message?.video || ctx?.message?.video || ctx?.Context?.update?.message?.video;
 
             if (photo) {
-                if (ctx.update.message.caption) {
-                    text.concat("\n" + ctx.update.message.caption);
-                }
-
-                personalData.photoId.push(photo[0].file_id);
-                //await ctx.telegram.sendPhoto(receiver, photo[0].file_id);
+                const photoData = ctx.message.photo.at(-1);
+                photoData.file_id && personalData.photoId.push(photoData.file_id);
             }
             if (video) {
                 if (ctx.update.message.caption) {
-                    text.concat("\n" + ctx.update.message.caption);
+                    text.concat(" " + ctx.update.message.caption);
                 }
 
                 personalData.videoId.push(video.file_id);
-                //await ctx.telegram.sendVideo(receiver, video.file_id);
             }
         }
 
+        if (!ctx?.update?.message?.media_group_id) {
+            next();
+            return;
+        }
+
+        if (ctx?.update?.message?.media_group_id && ctx?.update?.message?.media_group_id !== mediaGroupId) {
+            mediaGroupId = ctx?.update?.message?.media_group_id;
+            next();
+            return;
+        }
+
+    } catch (e) {
+        ctx.reply(dialog.error_caused);
+        ctx.telegram.sendMessage(receiver, JSON.stringify(e));
+        console.log(e);
+    }
+
+}
+
+async function startAction(ctx) {
+    user = await getUserName(ctx);
+    userId = JSON.stringify(ctx?.update?.message?.from.id);
+    isUserBot = JSON.stringify(ctx?.update?.message?.from.is_bot);
+    receiver = process.env.postBox;
+    mediaGroupId = "";
+
+    personalData = {
+        text: "",
+        photoId: [],
+        videoId: [],
+    };
+
+    await ctx.reply(dialog.intro);
+    await ctx.telegram.sendMessage(receiver, "user: { " + user + " }\n" + "user id: { " + userId + " }" + "\n" + "is user bot { " + isUserBot + " }" + "\n" + " USER MESSAGE: \n " + "User pressed start button");
+}
+
+async function onMessage(ctx) {
+    try {
         await ctx.replyWithHTML(dialog.if_end, Markup.inlineKeyboard([
             [
                 Markup.button.callback(dialog.form_and_send, "formAndSend")
             ]
         ]));
-
-
-        await ctx.replyWithHTML(dialog.if_end, keyboard);
     } catch (e) {
-        console.log(e)
+        ctx.reply(dialog.error_caused);
+        ctx.telegram.sendMessage(receiver, JSON.stringify(e))
+        console.log(e);
     }
-}
-
-async function onRestart(ctx) {
-    firstMessage = false;
-    await startAction();
 }
 
 async function getUserName(ctx) {
@@ -113,51 +129,48 @@ async function getUserName(ctx) {
 }
 
 bot.action('formAndSend', (ctx) => {
-    // Check if all required data is available
-    console.log(personalData.text.length, "=> personalData.text.length");
-    console.log(personalData.photoId.length, "=> personalData.photoId.length");
+    try {
 
-    if (!personalData.text.length || !personalData.photoId.length) {
-        ctx.reply('Не всі дані отримані. Будь ласка, надішліть всі необхідні дані.');
-        return;
-    }
+        if (!personalData.text.length || (!personalData.photoId.length && !personalData.videoId.length)) {
+            ctx.reply(dialog.not_enough_data);
+            return;
+        }
 
-    // Create an array of media objects (photos, videos, etc.)
-    const mediaGroup = []
-
-    for (let element in personalData.photoId) {
-        mediaGroup.push({
-            type: 'photo',
-            media: personalData[element],
+        const performedMediaGroup = personalData.photoId.map((photoId) => {
+            return {
+                type: 'photo',
+                media: photoId,
+            }
         });
-    }
 
-    for (let element in personalData.videoId) {
-        mediaGroup.push({
-            type: 'video',
-            media: personalData[element],
-        })
-    }
+        const performedVideoGroup = personalData.videoId.map((videoId) => {
+            return {
+                type: 'video',
+                media: videoId
+            }
+        });
 
-    mediaGroup.push({
-        type: 'text',
-        media: personalData.text,
-    })
-    // Add more media objects as needed
+        // Send the media group as an album
+        if (performedMediaGroup.length) { performedMediaGroup[0].caption = personalData.text } else
+            if (performedVideoGroup.length) { performedVideoGroup[0].caption = personalData.text }
 
-    // Send the media group as an album
-    ctx.telegram.sendMediaGroup(process.env.postBox, mediaGroup);
+        const resultPerformedMediaGroup = performedMediaGroup.concat(performedVideoGroup);
 
-    // Clear personalData for the next interaction
-    personalData = {
-        text: "",
-        photoId: [""],
-        videoId: [""],
+        ctx.telegram.sendMediaGroup(process.env.postBox, resultPerformedMediaGroup);
+        ctx.editMessageText(dialog.thank_you);
+
+        // Clear personalData for the next interaction
+        mediaGroupId = "";
+        personalData = {};
+    } catch (e) {
+        ctx.reply(dialog.error_caused);
+        ctx.telegram.sendMessage(receiver, JSON.stringify(e))
+        console.log(e);
     };
 });
 
 bot.launch();
 
 // // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'))
-process.once('SIGTERM', () => bot.stop('SIGTERM'))
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));

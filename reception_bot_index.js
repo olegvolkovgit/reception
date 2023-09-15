@@ -25,7 +25,7 @@ bot.on("message", dataProcessorMiddleware, onMessage);
 
 async function dataProcessorMiddleware(ctx, next) {
     try {
-        if (JSON.stringify(ctx?.update?.message?.from.id) === process.env.respKey) {
+        if (JSON.stringify(ctx?.update?.message?.from.id) === process.env.respKey && ctx?.message?.tex) {
             let user = ctx.message.text.match(/\[(.*?)\]/)[1];
             let data = ctx.message.text.replace(/\[(.*?)\]/, "");
 

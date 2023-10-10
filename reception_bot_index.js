@@ -131,7 +131,7 @@ async function getUserName(ctx) {
 bot.action('formAndSend', (ctx) => {
     try {
 
-        if (!personalData.text.length || (!personalData.photoId.length && !personalData.videoId.length)) {
+        if (!personalData?.text?.length || (!personalData?.photoId?.length && !personalData?.videoId?.length)) {
             ctx.reply(dialog.not_enough_data);
             return;
         }
@@ -151,7 +151,8 @@ bot.action('formAndSend', (ctx) => {
         });
 
         // Send the media group as an album
-        if (performedMediaGroup.length) { performedMediaGroup[0].caption = personalData.text } else
+        if (performedMediaGroup.length) { performedMediaGroup[0].caption = personalData.text }
+        else
             if (performedVideoGroup.length) { performedVideoGroup[0].caption = personalData.text }
 
         const resultPerformedMediaGroup = performedMediaGroup.concat(performedVideoGroup);
@@ -161,7 +162,12 @@ bot.action('formAndSend', (ctx) => {
 
         // Clear personalData for the next interaction
         mediaGroupId = "";
-        personalData = {};
+        personalData = {
+            text: "",
+            photoId: [],
+            videoId: [],
+        };
+
     } catch (e) {
         ctx.reply(dialog.error_caused);
         ctx.telegram.sendMessage(receiver, JSON.stringify(e))
